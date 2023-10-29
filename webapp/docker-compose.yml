@@ -6,11 +6,12 @@ services:
       - ./public:/public
       # localにログファイルを出力（logsコマンドで確認出来なくなるが。。あとMacが遅くなるかも）
       - ./logs/nginx:/var/log/nginx
+      # dbのimageを引っ張ってきた
+      - ./image:/image
     ports:
       - "80:80"
     links:
       - app
-
   app:
     # Go実装の場合は golang/ PHP実装の場合は php/
     build: golang/
@@ -26,13 +27,14 @@ services:
       - memcached
     volumes:
       - ./public:/home/public
+      # postされた画像をnginx用ディレクトリに書き起こすためのところ
+      - ./image:/image
     init: true
     deploy:
       resources:
         limits:
           cpus: '1'
           memory: 1g
-
   mysql:
     image: mysql:8.0
     environment:
@@ -52,9 +54,7 @@ services:
         limits:
           cpus: '2'
           memory: 4g
-
   memcached:
     image: memcached:1.6
-
 volumes:
   mysql:
