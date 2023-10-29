@@ -4,6 +4,8 @@ services:
     volumes:
       - ./etc/nginx/conf.d:/etc/nginx/conf.d
       - ./public:/public
+      # localにログファイルを出力（logsコマンドで確認出来なくなるが。。あとMacが遅くなるかも）
+      - ./logs/nginx:/var/log/nginx
     ports:
       - "80:80"
     links:
@@ -41,6 +43,8 @@ services:
       - mysql:/var/lib/mysql
       - ./etc/my.cnf:/etc/my.cnf
       - ./sql:/docker-entrypoint-initdb.d
+      # macが遅くなるかも
+      - ./logs/mysql:/var/log/mysql
     ports:
       - "3306:3306"
     deploy:
