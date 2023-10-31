@@ -53,7 +53,7 @@ type Post struct {
 	CreatedAt    time.Time `db:"created_at"`
 	CommentCount int
 	Comments     []Comment
-	User         User
+	User         User `db:"user"`
 	CSRFToken    string
 }
 
@@ -208,19 +208,21 @@ func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, erro
 
 		p.Comments = comments
 
-		err = db.Get(&p.User, "SELECT * FROM `users` WHERE `id` = ?", p.UserID)
-		if err != nil {
-			return nil, err
-		}
+		// err = db.Get(&p.User, "SELECT * FROM `users` WHERE `id` = ?", p.UserID)
+		// if err != nil {
+		// 	return nil, err
+		// }
 
 		p.CSRFToken = csrfToken
 
-		if p.User.DelFlg == 0 {
-			posts = append(posts, p)
-		}
-		if len(posts) >= postsPerPage {
-			break
-		}
+		// if p.User.DelFlg == 0 {
+		// 	posts = append(posts, p)
+		// }
+		posts = append(posts, p)
+		// 20件取得したら終了
+		// if len(posts) >= postsPerPage {
+		// 	break
+		// }
 	}
 
 	return posts, nil
@@ -390,7 +392,28 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 
 	results := []Post{}
 
-	err := db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` ORDER BY `created_at` DESC")
+	// query := "SELECT \"p.id\" as \"id\", \"p.user_id\" as \"user_id\", " +
+	// 	"\"p.body\" as \"body\" , \"p.mime\" as \"mime\", " +
+	// 	"\"p.created_at\" as \"created_at\", \"u.account_name\" as \"user.account_name\" " +
+	// 	"FROM posts as p join users as u on (\"p.user_id\"=\"u.id\") " +
+	// 	"WHERE \"u.del_flag\" = 0 " +
+	// 	"ORDER BY \"created_at\" DESC limit 20"
+	// query := "SELECT `p.id` as `id`, `p.user_id` as `user_id`, " +
+	// 	"`p.body` as `body`, `p.mime` as `mime`, " +
+	// 	"`p.created_at` as `created_at`, `u.account_name` as `user.account_name` " +
+	// 	"FROM `posts` as p join `users` as u on (`p.user_id`=`u.id`) " +
+	// 	"WHERE `u.del_flag` = 0 " +
+	// 	"ORDER BY `created_at` DESC limit 20"
+	query := `
+    SELECT p.id as id, p.user_id as user_id, 
+    p.body as body , p.mime as mime, 
+    p.created_at as created_at, u.account_name as "user.account_name" 
+    FROM posts as p join users as u on (p.user_id=u.id) 
+    WHERE "u.del_flag" = 0
+    ORDER BY created_at DESC limit 20
+  `
+	err := db.Select(&results, query)
+	// err := db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` ORDER BY `created_at` DESC")
 	if err != nil {
 		log.Print(err)
 		return
@@ -436,7 +459,24 @@ func getAccountName(w http.ResponseWriter, r *http.Request) {
 
 	results := []Post{}
 
-	err = db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC", user.ID)
+	// TODO: 上で定義したqueryを使い回した方が良い？
+
+	// query := "SELECT \"p.id\" as \"id\", \"p.user_id\" as \"user_id\", " +
+	// 	"\"p.body\" as \"body\" , \"p.mime\" as \"mime\", " +
+	// 	"\"p.created_at\" as \"created_at\", \"u.account_name\" as \"user.account_name\" " +
+	// 	"FROM posts as p join users as u on (\"p.user_id\"=\"u.id\") " +
+	// 	"WHERE \"u.id\" = ? " +
+	// 	"ORDER BY \"created_at\" DESC limit 20"
+	query := `
+    SELECT p.id as id, p.user_id as user_id, 
+    p.body as body , p.mime as mime, 
+    p.created_at as created_at, u.account_name as "user.account_name" 
+    FROM posts as p join users as u on (p.user_id=u.id) 
+    WHERE "u.del_flag" = 0 and u.id = ?
+    ORDER BY created_at DESC limit 20
+  `
+	err = db.Select(&results, query, user.ID)
+	// err = db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC", user.ID)
 	if err != nil {
 		log.Print(err)
 		return
@@ -524,7 +564,22 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results := []Post{}
-	err = db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `created_at` <= ? ORDER BY `created_at` DESC", t.Format(ISO8601Format))
+	// query := "SELECT \"p.id\" as \"id\", \"p.user_id\" as \"user_id\", " +
+	// 	"\"p.body\" as \"body\" , \"p.mime\" as \"mime\", " +
+	// 	"\"p.created_at\" as \"created_at\", \"u.account_name\" as \"user.account_name\" " +
+	// 	"FROM posts as p join users as u on (\"p.user_id\"=\"u.id\") " +
+	// 	"WHERE \"u.del_flag\" = 0 and \"p.created_at\" <= ? " +
+	// 	"ORDER BY \"created_at\" DESC limit 20"
+	query := `
+    SELECT p.id as id, p.user_id as user_id, 
+    p.body as body , p.mime as mime, 
+    p.created_at as created_at, u.account_name as "user.account_name"
+    FROM posts as p join users as u on (p.user_id=u.id) 
+    WHERE "u.del_flag" = 0 and p.created_at <= ? 
+    ORDER BY created_at DESC limit 20
+  `
+	err = db.Select(&results, query, t.Format(ISO8601Format))
+	// err = db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `created_at` <= ? ORDER BY `created_at` DESC", t.Format(ISO8601Format))
 	if err != nil {
 		log.Print(err)
 		return
@@ -560,7 +615,22 @@ func getPostsID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results := []Post{}
-	err = db.Select(&results, "SELECT * FROM `posts` WHERE `id` = ?", pid)
+	// query := "SELECT \"p.id\" as \"id\", \"p.user_id\" as \"user_id\", " +
+	// 	"\"p.body\" as \"body\" , \"p.mime\" as \"mime\", " +
+	// 	"\"p.created_at\" as \"created_at\", \"u.account_name\" as \"user.account_name\" " +
+	// 	"FROM posts as p join users as u on (\"p.user_id\"=\"u.id\") " +
+	// 	"WHERE \"u.del_flag\" = 0 and \"p.id\" = ? " +
+	// 	"ORDER BY \"created_at\" DESC limit 20"
+	query := `
+    SELECT p.id as id, p.user_id as user_id, 
+    p.body as body , p.mime as mime, 
+    p.created_at as created_at, u.account_name as "user.account_name" 
+    FROM posts as p join users as u on (p.user_id=u.id) 
+    WHERE "u.del_flag" = 0 and p.id = ? 
+    ORDER BY created_at DESC limit 20
+  `
+	err = db.Select(&results, query, pid)
+	// err = db.Select(&results, "SELECT * FROM `posts` WHERE `id` = ?", pid)
 	if err != nil {
 		log.Print(err)
 		return
