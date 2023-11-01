@@ -408,7 +408,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
     SELECT p.id as id, p.user_id as user_id, 
     p.body as body , p.mime as mime, 
     p.created_at as created_at, u.account_name as "user.account_name" 
-    FROM posts as p join users as u on (p.user_id=u.id) 
+    FROM posts as p force index(posts_user_idx) join users as u on (p.user_id=u.id) 
     WHERE "u.del_flag" = 0
     ORDER BY created_at DESC limit 20
   `
@@ -471,7 +471,7 @@ func getAccountName(w http.ResponseWriter, r *http.Request) {
     SELECT p.id as id, p.user_id as user_id, 
     p.body as body , p.mime as mime, 
     p.created_at as created_at, u.account_name as "user.account_name" 
-    FROM posts as p join users as u on (p.user_id=u.id) 
+    FROM posts as p force index(posts_user_idx) join users as u on (p.user_id=u.id) 
     WHERE "u.del_flag" = 0 and u.id = ?
     ORDER BY created_at DESC limit 20
   `
@@ -574,7 +574,7 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
     SELECT p.id as id, p.user_id as user_id, 
     p.body as body , p.mime as mime, 
     p.created_at as created_at, u.account_name as "user.account_name"
-    FROM posts as p join users as u on (p.user_id=u.id) 
+    FROM posts as p force index(posts_user_idx) join users as u on (p.user_id=u.id) 
     WHERE "u.del_flag" = 0 and p.created_at <= ? 
     ORDER BY created_at DESC limit 20
   `
@@ -625,7 +625,7 @@ func getPostsID(w http.ResponseWriter, r *http.Request) {
     SELECT p.id as id, p.user_id as user_id, 
     p.body as body , p.mime as mime, 
     p.created_at as created_at, u.account_name as "user.account_name" 
-    FROM posts as p join users as u on (p.user_id=u.id) 
+    FROM posts as p force index(posts_user_idx) join users as u on (p.user_id=u.id) 
     WHERE "u.del_flag" = 0 and p.id = ? 
     ORDER BY created_at DESC limit 20
   `
@@ -922,6 +922,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to DB: %s.", err.Error())
 	}
+	db.SetMaxOpenConns(8)
+	db.SetMaxIdleConns(8)
 	defer db.Close()
 
 	r := chi.NewRouter()
